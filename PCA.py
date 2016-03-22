@@ -13,18 +13,27 @@ from PIL import Image
 from utils import tile_raster_images
 
 def get_data(dpath):
+    '''
+    Read in MNIST.pkl.gz data 
+    '''
     fin = gzip.open(dpath, 'rb')
     train_set, test_set, cv_set = cPickle.load(fin)
     fin.close()    
-    return train_set[0][:10000]
+    return train_set[0][:10000]#select first 10000 samples
 
-#def preprocess(data):
-    #m = len(data)
-    #mu = data.sum(axis=0) / m
-    #ndata = data - mu
-    #return ndata
+def preprocess(data):
+    '''
+    feature scaling and normalization.
+    '''
+    m = len(data)
+    mu = data.sum(axis=0) / m
+    ndata = data - mu / 255.0
+    return ndata
 
 def pca(ndata):
+    '''
+    Select first 1, 5, 20, 100 components respectively
+    '''
     Sigma = ndata.dot(ndata.T) / len(ndata)
     U, S, v = svd(Sigma)
     Urs = [U[:,:1],U[:,:5],U[:,:20],U[:,:100]]
@@ -33,13 +42,9 @@ def pca(ndata):
     return z, Ua
 
 def plot(data, z, Ua):
-    #img = Image.fromarray((data[1].reshape(28, 28) * 255).astype(np.uint8))
-    #img.save('original.p')
-    #for i in range(4):
-        #zimg = Image.fromarray((z[i][1].reshape(28, 28) * 255).astype(np.uint8))
-        #zimg.save('reduced_k%i.bmp' % i)
-        #uimg = Image.fromarray((Ua[i][1].reshape(28, 28) * 255).astype(np.uint8))
-        #uimg.save('reconstructed_k%i.bmp' % i)
+    '''
+    Display the images of original data, reduced data and reconstruct data.
+    '''
     image = Image.fromarray(
         tile_raster_images(
             X=data[:100],
@@ -72,7 +77,7 @@ def plot(data, z, Ua):
 if __name__ == '__main__':
     dpath = './data/mnist.pkl.gz'
     data = get_data(dpath)
-    #ndata = preprocess(data)
-    #z, Ua = pca(ndata)
+    ndata = preprocess(data)
+    z, Ua = pca(ndata)
     z, Ua = pca(data)
     plot(data, z, Ua)
