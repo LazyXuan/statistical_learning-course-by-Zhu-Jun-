@@ -1,3 +1,5 @@
+#!/usr/bin/python
+
 # -*- coding: utf-8 -*-
 """
 Created on Mon Mar 21 18:48:57 2016
@@ -13,38 +15,26 @@ from PIL import Image
 from utils import tile_raster_images
 
 def get_data(dpath):
-    '''
-    Read in MNIST.pkl.gz data 
-    '''
     fin = gzip.open(dpath, 'rb')
     train_set, test_set, cv_set = cPickle.load(fin)
-    fin.close()    
-    return train_set[0][:10000]#select first 10000 samples
+    fin.close()
+    return train_set[0]
 
 def preprocess(data):
-    '''
-    feature scaling and normalization.
-    '''
-    m = len(data)
-    mu = data.sum(axis=0) / m
-    ndata = data - mu / 255.0
+    ndata = np.copy(data)
+    ndata -= np.mean(ndata, axis=0)
     return ndata
 
 def pca(ndata):
-    '''
-    Select first 1, 5, 20, 100 components respectively
-    '''
-    Sigma = ndata.dot(ndata.T) / len(ndata)
-    U, S, v = svd(Sigma)
-    Urs = [U[:,:1],U[:,:5],U[:,:20],U[:,:100]]
-    z = [Urs[i].T.dot(ndata) for i in range(4)]
-    Ua = [Urs[j].dot(z[j]) for j in range(4)]
-    return z, Ua
+    Sigma = np.dot(ndata.T, ndata) / ndata.shape[0]
+    U, S, V = svd(Sigma)
+    Urs = [U[:,:1].T,U[:,:5].T,U[:,:20].T,U[:,:100].T]
+    z = [np.dot(ndata, Urs[i].T) for i in range(4)]
+    Ua = [np.dot(z[j], Urs[j]) for j in range(4)]
+    dwhite = np.dot(ndata, U) / np.sqrt(S + 1e-10)
+    return Urs, z, Ua, dwhite
 
-def plot(data, z, Ua):
-    '''
-    Display the images of original data, reduced data and reconstruct data.
-    '''
+def plot(data, Urs, Ua, dwhite):
     image = Image.fromarray(
         tile_raster_images(
             X=data[:100],
@@ -54,16 +44,28 @@ def plot(data, z, Ua):
         )
     )
     image.save('original.png')
+
+    image = Image.fromarray(
+        tile_raster_images(
+            X=dwhite[:100],
+            img_shape=(28, 28),
+            tile_shape=(10, 10),
+            tile_spacing=(1, 1)
+        )
+    )
+    image.save('whitened.png')
+
     for i in range(4):
         zimage = Image.fromarray(
             tile_raster_images(
-                X=z[i][:100],
+                X=Urs[i][:100],
                 img_shape=(28, 28),
                 tile_shape=(10, 10),
                 tile_spacing=(1, 1)
             )
         )
         zimage.save('reduced_k%i.png' % i)
+
         uimage = Image.fromarray(
             tile_raster_images(
                 X=Ua[i][:100],
@@ -78,6 +80,5 @@ if __name__ == '__main__':
     dpath = './data/mnist.pkl.gz'
     data = get_data(dpath)
     ndata = preprocess(data)
-    z, Ua = pca(ndata)
-    z, Ua = pca(data)
-    plot(data, z, Ua)
+    Urs, z, Ua, dwhite = pca(ndata)
+    plot(data, Urs, Ua, dwhite)
